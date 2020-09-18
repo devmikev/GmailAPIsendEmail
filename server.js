@@ -14,33 +14,36 @@ app.use(cors());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-console.log(process.env.CLIENT_ID);
-console.log(process.env.CLIENT_SECRET);
+app.post("/test", (req, res) => {
+  console.log("body", req.body);
+  const { jwt, accessToken, to, subject } = req.body;
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
 
-app.get("/test", (req, res) => {
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.CLIENT_ID,
-    process.env.CLIENT_SECRET,
-    process.env.CLIENT_SECRET,
-    REDIRECT_URI
+  const gmail = google.gmail({ version: "v1", auth });
+  const str = `To: ${to}
+Subject: ${subject}
+  
+line1
+line2`;
+  console.log("str", str);
+  const raw = new Buffer.from(str)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+  gmail.users.messages.send(
+    {
+      userId: "dummy.devmv@gmail.com",
+      resource: {
+        raw,
+      },
+    },
+    (err, result) => {
+      console.log("err", err);
+      console.log("result", result);
+      res.send(JSON.stringify(result));
+    }
   );
-
-  const scopes = ["https://mail.google.com/"];
-
-  const url = oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    scope: scopes,
-    state: JSON.stringify({
-      callbackUrl: req.body.callbackUrl,
-      userID: req.body.userid,
-    }),
-  });
-
-  request(url, (err, res, body) => {
-    console.log("error: ", err);
-    console.log("statusCode: ", res && res.statusCode);
-    res.send({ url });
-  });
 });
 
 app.listen(port, () => console.log(`Server running on port ${port}`));
